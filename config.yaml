@@ -1,0 +1,63 @@
+mode: api_gateway   # load_balancer | api_gateway
+
+server:
+  bind_address: "0.0.0.0:8484"
+  workers: 4
+
+logging:
+  level: debug   # trace | debug | info | warn | error  (overridden by RUST_LOG env var)
+
+# Upstream groups — referenced by name in both load_balancer and api_gateway sections.
+upstreams:
+  users_server:
+    servers:
+      - "127.0.0.1:3001"
+    strategy: round_robin
+    tls: false
+
+  products_server:
+    servers:
+      - "127.0.0.1:3002"
+    strategy: round_robin
+    tls: false
+
+  web_server:
+    servers:
+      - "127.0.0.1:3003"
+    strategy: round_robin
+    tls: false
+
+# Used when mode: load_balancer
+# load_balancer:
+#   upstream: web_server
+
+# Used when mode: api_gateway
+api_gateway:
+  routes:
+    users_api:
+      path_pattern: "^/users"
+      methods: [GET, POST, PUT, DELETE]
+      upstream: users_server
+      strip_prefix: false
+      middlewares: []
+
+    products_api:
+      path_pattern: "^/products"
+      methods: [GET, POST, PUT, DELETE]
+      upstream: products_server
+      strip_prefix: false
+      middlewares: []
+
+    web_app:
+      path_pattern: "^/"
+      methods: [GET, POST]
+      upstream: web_server
+      strip_prefix: false
+      middlewares: []
+
+  middlewares: {}
+
+control_api:
+  enabled: true
+  bind_address: "0.0.0.0:8485"
+  api_key: "admin-key-12345"

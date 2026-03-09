@@ -1,0 +1,46 @@
+services:
+
+  # ── Locci Proxy ─────────────────────────────────────────────────────────────
+  locci-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: locci-proxy
+    image: locci/proxy:latest
+    restart: unless-stopped
+    volumes:
+      # Mount your config.yaml — set mode, upstreams, routes here
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+    networks:
+      - locci-network
+    labels:
+      - "traefik.enable=true"
+
+      # ── Main proxy (port 8484) ───────────────────────────────────────────────
+      - "traefik.http.routers.proxy.rule=Host(`${PROXY_HOST:-proxy.locci.cloud}`)"
+      - "traefik.http.routers.proxy.entrypoints=web"
+      - "traefik.http.routers.proxy.middlewares=proxy-redirect"
+
+      - "traefik.http.routers.proxy-secure.rule=Host(`${PROXY_HOST:-proxy.locci.cloud}`)"
+      - "traefik.http.routers.proxy-secure.entrypoints=websecure"
+      - "traefik.http.routers.proxy-secure.tls=true"
+      - "traefik.http.routers.proxy-secure.tls.certresolver=letsencrypt"
+
+      - "traefik.http.services.proxy.loadbalancer.server.port=8484"
+
+      - "traefik.http.middlewares.proxy-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.proxy-redirect.redirectscheme.permanent=true"
+
+      # ── Control API (port 8485) ──────────────────────────────────────────────
+      - "traefik.http.routers.proxy-control.rule=Host(`${CONTROL_HOST:-control.proxy.locci.cloud}`)"
+      - "traefik.http.routers.proxy-control.entrypoints=websecure"
+      - "traefik.http.routers.proxy-control.tls=true"
+      - "traefik.http.routers.proxy-control.tls.certresolver=letsencrypt"
+
+      - "traefik.http.services.proxy-control.loadbalancer.server.port=8485"
+
+networks:
+  locci-network:
+    driver: bridge

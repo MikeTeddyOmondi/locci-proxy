@@ -1,0 +1,27 @@
+mode: load_balancer
+
+server:
+  bind_address: "0.0.0.0:8484"
+  workers: 4
+
+logging:
+  level: info
+
+# Three instances of the same service — identical data, each tagged with its own
+# instance name so round-robin is clearly visible in responses.
+upstreams:
+  app_servers:
+    servers:
+      - "127.0.0.1:3001"   # json-server --port 3001 db-lb-1.json
+      - "127.0.0.1:3002"   # json-server --port 3002 db-lb-2.json
+      - "127.0.0.1:3003"   # json-server --port 3003 db-lb-3.json
+    strategy: round_robin
+    tls: false
+
+load_balancer:
+  upstream: app_servers
+
+control_api:
+  enabled: true
+  bind_address: "0.0.0.0:8485"
+  api_key: "admin-key-12345"

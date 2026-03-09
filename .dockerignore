@@ -1,0 +1,27 @@
+target/
+
+# Environment files
+.env
+.env.*
+**/*.env
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Docker files themselves
+Dockerfile
+.dockerignore
+compose.yaml
+
+# Docs & examples (not needed in the image)
+REFERENCE.md
+examples/
+
+# CI
+.github/

@@ -1,0 +1,24 @@
+{
+  "products": [
+    {
+      "id": "1",
+      "name": "Widget",
+      "price": 9.99
+    },
+    {
+      "id": "2",
+      "name": "Gadget",
+      "price": 24.99
+    },
+    {
+      "id": "3",
+      "name": "Doohick",
+      "price": 4.99
+    },
+    {
+      "id": "adb9",
+      "name": "Thingamajig",
+      "price": 14.99
+    }
+  ]
+}

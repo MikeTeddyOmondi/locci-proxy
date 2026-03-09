@@ -1,0 +1,93 @@
+@proxyUrl = http://localhost:8484
+@controlUrl = http://localhost:8485
+
+# ── Control API ───────────────────────────────────────────────────────────────
+
+### Status — running mode + which service is active
+GET {{controlUrl}}/api/v1/status
+
+###
+
+### Config — full loaded config as JSON
+GET {{controlUrl}}/api/v1/config
+
+###
+
+### Metrics — (stub, wire up Prometheus)
+GET {{controlUrl}}/api/v1/metrics
+
+###
+
+# ── Gateway mode — routed requests ────────────────────────────────────────────
+# Requires: just demo-gateway (or just servers + just run-gateway)
+
+### Users — routed to users_server (:3001)
+GET {{proxyUrl}}/users
+
+###
+
+### Single user
+GET {{proxyUrl}}/users/1
+
+###
+
+### Create user
+POST {{proxyUrl}}/users
+Content-Type: application/json
+
+{
+  "name": "Dave",
+  "email": "dave@locci.cloud"
+}
+
+###
+
+### Products — routed to products_server (:3002)
+GET {{proxyUrl}}/products
+
+###
+
+### Single product
+GET {{proxyUrl}}/products/1
+
+###
+
+### Create product
+POST {{proxyUrl}}/products
+Content-Type: application/json
+
+{
+  "name": "Thingamajig",
+  "price": 14.99
+}
+
+###
+
+### Pages — catch-all (^/) routed to web_server (:3003)
+GET {{proxyUrl}}/pages
+
+###
+
+### Single page
+GET {{proxyUrl}}/pages/1
+
+###
+
+# ── Load balancer mode — round-robin requests ─────────────────────────────────
+# Requires: just demo-lb
+# Every request cycles across :3001 → :3002 → :3003
+
+### Round-robin request 1
+GET {{proxyUrl}}/instance
+
+###
+
+### Round-robin request 2
+GET {{proxyUrl}}/instance
+
+###
+
+### Round-robin request 3
+GET {{proxyUrl}}/instance
+
+###

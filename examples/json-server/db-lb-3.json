@@ -1,0 +1,8 @@
+{
+  "instance": { "id": 3, "name": "server-3", "port": 3003 },
+  "items": [
+    { "id": 1, "name": "Apple",  "price": 1.99 },
+    { "id": 2, "name": "Banana", "price": 0.99 },
+    { "id": 3, "name": "Cherry", "price": 3.49 }
+  ]
+}

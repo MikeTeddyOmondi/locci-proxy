@@ -1,0 +1,6 @@
+{
+  "pages": [
+    { "id": 1, "slug": "home",  "title": "Home" },
+    { "id": 2, "slug": "about", "title": "About" }
+  ]
+}
