@@ -19,6 +19,7 @@ use crate::metrics;
 
 #[allow(unused_imports)]
 use http;
+use pingora_http::RequestHeader;
 
 pub struct LbProxy {
     lb: Arc<LoadBalancer<RoundRobin>>,
@@ -30,6 +31,8 @@ pub struct LbProxy {
 /// Per-request context for the LB proxy.
 pub struct LbCtx {
     pub start: Instant,
+    pub request_id: String,
+    pub server: String,
 }
 
 #[async_trait]
@@ -38,15 +41,17 @@ impl ProxyHttp for LbProxy {
     fn new_ctx(&self) -> Self::CTX {
         LbCtx {
             start: Instant::now(),
+            request_id: super::next_request_id(),
+            server: String::new(),
         }
     }
 
     async fn upstream_peer(
         &self,
         _session: &mut Session,
-        _ctx: &mut Self::CTX,
+        ctx: &mut Self::CTX,
     ) -> Result<Box<HttpPeer>> {
-        let upstream = self.lb.select(b"", 256).ok_or_else(|| {
+        let backend = self.lb.select(b"", 256).ok_or_else(|| {
             Error::explain(
                 InternalError,
                 ProxyError::NoHealthyPeers {
@@ -56,27 +61,62 @@ impl ProxyHttp for LbProxy {
             )
         })?;
 
-        let mut peer = HttpPeer::new(upstream, false, String::new());
+        ctx.server = backend.addr.to_string();
+        let mut peer = HttpPeer::new(backend, false, String::new());
         peer.options.connection_timeout = self.connect_timeout;
         peer.options.read_timeout = self.read_timeout;
         Ok(Box::new(peer))
     }
 
+    async fn upstream_request_filter(
+        &self,
+        _session: &mut Session,
+        upstream_request: &mut RequestHeader,
+        ctx: &mut Self::CTX,
+    ) -> Result<()> {
+        upstream_request
+            .insert_header("x-request-id", ctx.request_id.as_str())
+            .or_err(InternalError, "insert x-request-id")?;
+        Ok(())
+    }
+
     async fn logging(&self, session: &mut Session, e: Option<&Error>, ctx: &mut Self::CTX) {
-        let duration = ctx.start.elapsed().as_secs_f64();
-        let status = if e.is_some() {
-            "error".to_owned()
-        } else {
-            session
-                .response_written()
-                .map(|r| r.status.as_str().to_owned())
-                .unwrap_or_else(|| "0".to_owned())
-        };
+        let duration = ctx.start.elapsed();
+        let method = session.req_header().method.as_str().to_owned();
+        let path = session.req_header().uri.path().to_owned();
+        let status = session
+            .response_written()
+            .map(|r| r.status.as_u16())
+            .unwrap_or(0);
 
-        metrics::record_request("lb", &self.upstream_name, &status, duration);
-
-        if e.is_some() {
+        if let Some(err) = e {
+            tracing::warn!(
+                request_id = %ctx.request_id,
+                path = %path,
+                method = %method,
+                upstream = %self.upstream_name,
+                server = %ctx.server,
+                error_type = err.etype().as_str(),
+                "upstream error"
+            );
             metrics::record_error("lb", "upstream_error");
+        } else {
+            tracing::info!(
+                request_id = %ctx.request_id,
+                path = %path,
+                method = %method,
+                upstream = %self.upstream_name,
+                server = %ctx.server,
+                status = status,
+                duration_ms = duration.as_millis(),
+                "request"
+            );
+            metrics::record_request(
+                "lb",
+                &self.upstream_name,
+                &status.to_string(),
+                duration.as_secs_f64(),
+            );
         }
     }
 }

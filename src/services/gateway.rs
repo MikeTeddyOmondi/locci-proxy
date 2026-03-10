@@ -34,6 +34,8 @@ pub struct GatewayCtx {
     pub start: Instant,
     /// Upstream group name resolved during upstream_peer — used in logging.
     pub upstream: String,
+    pub request_id: String,
+    pub server: String,
 }
 
 impl GatewayProxy {
@@ -115,6 +117,8 @@ impl ProxyHttp for GatewayProxy {
         GatewayCtx {
             start: Instant::now(),
             upstream: String::new(),
+            request_id: super::next_request_id(),
+            server: String::new(),
         }
     }
 
@@ -156,6 +160,7 @@ impl ProxyHttp for GatewayProxy {
 
         // Store upstream name in ctx so logging() can label metrics correctly.
         ctx.upstream.clone_from(&route.upstream);
+        ctx.server = backend.addr.to_string();
 
         let mut peer = HttpPeer::new(backend, false, String::new());
         peer.options.connection_timeout = self.connect_timeout;
@@ -171,8 +176,12 @@ impl ProxyHttp for GatewayProxy {
         &self,
         session: &mut Session,
         upstream_request: &mut RequestHeader,
-        _ctx: &mut Self::CTX,
+        ctx: &mut Self::CTX,
     ) -> Result<()> {
+        upstream_request
+            .insert_header("x-request-id", ctx.request_id.as_str())
+            .or_err(InternalError, "insert x-request-id")?;
+
         let path = session.req_header().uri.path().to_owned();
 
         if let Some((_, Some(strip_re), _)) = self.match_route(&path) {
@@ -197,25 +206,47 @@ impl ProxyHttp for GatewayProxy {
     }
 
     async fn logging(&self, session: &mut Session, e: Option<&Error>, ctx: &mut Self::CTX) {
-        let duration = ctx.start.elapsed().as_secs_f64();
+        let duration = ctx.start.elapsed();
         let upstream = if ctx.upstream.is_empty() {
             "unknown"
         } else {
             &ctx.upstream
         };
-        let status = if e.is_some() {
-            "error".to_owned()
-        } else {
-            session
-                .response_written()
-                .map(|r| r.status.as_str().to_owned())
-                .unwrap_or_else(|| "0".to_owned())
-        };
+        let method = session.req_header().method.as_str().to_owned();
+        let path = session.req_header().uri.path().to_owned();
+        let status = session
+            .response_written()
+            .map(|r| r.status.as_u16())
+            .unwrap_or(0);
 
-        metrics::record_request("gateway", upstream, &status, duration);
-
-        if e.is_some() {
+        if let Some(err) = e {
+            tracing::warn!(
+                request_id = %ctx.request_id,
+                path = %path,
+                method = %method,
+                upstream = %upstream,
+                server = %ctx.server,
+                error_type = err.etype().as_str(),
+                "upstream error"
+            );
             metrics::record_error("gateway", "upstream_error");
+        } else {
+            tracing::info!(
+                request_id = %ctx.request_id,
+                path = %path,
+                method = %method,
+                upstream = %upstream,
+                server = %ctx.server,
+                status = status,
+                duration_ms = duration.as_millis(),
+                "request"
+            );
+            metrics::record_request(
+                "gateway",
+                upstream,
+                &status.to_string(),
+                duration.as_secs_f64(),
+            );
         }
     }
 }
