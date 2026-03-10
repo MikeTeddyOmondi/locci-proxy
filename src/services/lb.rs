@@ -103,6 +103,13 @@ pub(crate) fn build_lb(
         });
     }
 
+    // Initialise the health gauge for every server in this upstream group.
+    // Default to healthy (1) — health checks will update the gauge over time
+    // when a health_check block is configured.
+    for server_addr in &upstream.servers {
+        metrics::set_upstream_health(upstream_name, server_addr, true);
+    }
+
     let mut lb =
         LoadBalancer::try_from_iter(upstream.servers.iter().map(|s| s.as_str())).map_err(|e| {
             ProxyError::LoadBalancerBuild {
@@ -136,11 +143,6 @@ pub(crate) fn build_lb(
         let bg = background_service(&format!("health check: {upstream_name}"), lb);
         let lb_arc = bg.task();
         server.add_service(bg);
-
-        // Initialise health gauge for all servers in this upstream.
-        for server_addr in &upstream.servers {
-            metrics::set_upstream_health(upstream_name, server_addr, true);
-        }
 
         tracing::info!(
             upstream = upstream_name,

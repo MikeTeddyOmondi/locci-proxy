@@ -15,18 +15,30 @@ upstreams:
       - "127.0.0.1:3001"   # json-server --port 3001 db-users.json
     strategy: round_robin
     tls: false
+    health_check:
+      interval_secs: 10
+      timeout_secs: 2
+      path: /users           # json-server returns 200 on this path
 
   products_server:
     servers:
       - "127.0.0.1:3002"   # json-server --port 3002 db-products.json
     strategy: round_robin
     tls: false
+    health_check:
+      interval_secs: 10
+      timeout_secs: 2
+      path: /products
 
   web_server:
     servers:
       - "127.0.0.1:3003"   # json-server --port 3003 db-web.json
     strategy: round_robin
     tls: false
+    health_check:
+      interval_secs: 10
+      timeout_secs: 2
+      path: /pages
 
 api_gateway:
   routes:
@@ -35,6 +47,7 @@ api_gateway:
       methods: [GET, POST, PUT, DELETE]
       upstream: users_server
       strip_prefix: false
+      timeout_secs: 30
       middlewares: []
 
     products_api:
@@ -42,6 +55,7 @@ api_gateway:
       methods: [GET, POST, PUT, DELETE]
       upstream: products_server
       strip_prefix: false
+      timeout_secs: 30
       middlewares: []
 
     web_app:

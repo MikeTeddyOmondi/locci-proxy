@@ -14,9 +14,9 @@ logging:
 upstreams:
   app_servers:
     servers:
-      - "127.0.0.1:3001"   # json-server --port 3001 db-lb-1.json
-      - "127.0.0.1:3002"   # json-server --port 3002 db-lb-2.json
-      - "127.0.0.1:3003"   # json-server --port 3003 db-lb-3.json
+      - "host.docker.internal:3001"   # json-server --port 3001 db-lb-1.json
+      - "host.docker.internal:3002"   # json-server --port 3002 db-lb-2.json
+      - "host.docker.internal:3003"   # json-server --port 3003 db-lb-3.json
     strategy: round_robin
     tls: false
     health_check:
