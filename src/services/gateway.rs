@@ -2,22 +2,29 @@ use async_trait::async_trait;
 use pingora_core::prelude::*;
 use pingora_core::server::Server;
 use pingora_http::RequestHeader;
+use pingora_load_balancing::{LoadBalancer, selection::RoundRobin};
 use pingora_proxy::{ProxyHttp, Session, http_proxy_service};
 use std::{collections::HashMap, sync::Arc};
 
 use crate::config::{RouteConfig, UnifiedConfig};
 use crate::errors::{ProxyError, ProxyResult};
+use crate::services::lb::build_lb;
 
 pub struct GatewayProxy {
     // (match_regex, strip_prefix_regex, route)
     // strip_prefix_regex is pre-compiled at startup when strip_prefix: true,
     // eliminating the runtime unwrap() on the hot path.
     routes: Vec<(regex::Regex, Option<regex::Regex>, RouteConfig)>,
-    upstreams: Arc<HashMap<String, Vec<String>>>, // name → [host:port]
+    // Each upstream group has its own LoadBalancer — round-robin with health
+    // check support, identical to lb mode.
+    upstreams: Arc<HashMap<String, Arc<LoadBalancer<RoundRobin>>>>,
 }
 
 impl GatewayProxy {
-    pub fn new(config: &UnifiedConfig) -> ProxyResult<Self> {
+    fn new(
+        config: &UnifiedConfig,
+        upstreams: HashMap<String, Arc<LoadBalancer<RoundRobin>>>,
+    ) -> ProxyResult<Self> {
         let gw_cfg =
             config
                 .api_gateway
@@ -49,19 +56,19 @@ impl GatewayProxy {
                 None
             };
 
+            // Validate that the route's upstream exists in the map at startup,
+            // not at request time.
+            if !upstreams.contains_key(&route.upstream) {
+                return Err(ProxyError::UpstreamNotFound {
+                    name: route.upstream.clone(),
+                });
+            }
+
             routes.push((match_re, strip_re, route.clone()));
         }
+
         // Sort longest pattern first so specific routes always beat catch-alls (e.g. ^/).
         routes.sort_by(|(a, _, _), (b, _, _)| b.as_str().len().cmp(&a.as_str().len()));
-
-        // Build upstream map from the top-level upstreams section.
-        let mut upstreams: HashMap<String, Vec<String>> = HashMap::new();
-        for (name, upstream) in &config.upstreams {
-            if upstream.servers.is_empty() {
-                return Err(ProxyError::EmptyUpstream { name: name.clone() });
-            }
-            upstreams.insert(name.clone(), upstream.servers.clone());
-        }
 
         Ok(Self {
             routes,
@@ -96,7 +103,7 @@ impl ProxyHttp for GatewayProxy {
             )
         })?;
 
-        let servers = self.upstreams.get(&route.upstream).ok_or_else(|| {
+        let lb = self.upstreams.get(&route.upstream).ok_or_else(|| {
             Error::explain(
                 InternalError,
                 ProxyError::UpstreamNotFound {
@@ -106,17 +113,19 @@ impl ProxyHttp for GatewayProxy {
             )
         })?;
 
-        let addr = servers.first().ok_or_else(|| {
+        // Use the request path as selection key — for RoundRobin the key is
+        // ignored, but it prepares for future consistent-hash support.
+        let backend = lb.select(path.as_bytes(), 256).ok_or_else(|| {
             Error::explain(
                 InternalError,
-                ProxyError::EmptyUpstream {
+                ProxyError::NoHealthyPeers {
                     name: route.upstream.clone(),
                 }
                 .to_string(),
             )
         })?;
 
-        Ok(Box::new(HttpPeer::new(addr.as_str(), false, String::new())))
+        Ok(Box::new(HttpPeer::new(backend, false, String::new())))
     }
 
     async fn upstream_request_filter(
@@ -150,7 +159,26 @@ impl ProxyHttp for GatewayProxy {
 }
 
 pub fn add_gateway_service(server: &mut Server, config: &UnifiedConfig) -> ProxyResult<()> {
-    let proxy = GatewayProxy::new(config)?;
+    let gw_cfg = config
+        .api_gateway
+        .as_ref()
+        .ok_or_else(|| ProxyError::MissingConfigSection {
+            mode: format!("{:?}", config.mode),
+            section: "api_gateway",
+        })?;
+
+    // Build one LoadBalancer per unique upstream referenced across all routes.
+    // Each gets its own background health-check task registered with the server.
+    let mut upstreams: HashMap<String, Arc<LoadBalancer<RoundRobin>>> = HashMap::new();
+    for route in gw_cfg.routes.values() {
+        if upstreams.contains_key(&route.upstream) {
+            continue;
+        }
+        let lb_arc = build_lb(server, config, &route.upstream)?;
+        upstreams.insert(route.upstream.clone(), lb_arc);
+    }
+
+    let proxy = GatewayProxy::new(config, upstreams)?;
     let addr = &config.server.bind_address;
     let mut svc = http_proxy_service(&server.configuration, proxy);
     svc.add_tcp(addr);

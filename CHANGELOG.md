@@ -9,6 +9,9 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- TASK-001: Gateway upstream load balancing — each upstream group in `api_gateway` now gets its own `LoadBalancer<RoundRobin>` with health-check background task; `upstream_peer` calls `lb.select()` instead of `servers.first()` ([#14](https://github.com/MikeTeddyOmondi/locci-proxy/pull/14))
+
 ### Fixed
 - TASK-004: Pre-compile strip-prefix regex at startup — eliminates runtime `unwrap()` on the hot path ([#12](https://github.com/MikeTeddyOmondi/locci-proxy/pull/12))
 - TASK-008: Health check background task now registered with Pingora server — checks were configured but never ran ([#13](https://github.com/MikeTeddyOmondi/locci-proxy/pull/13))

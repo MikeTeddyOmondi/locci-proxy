@@ -48,7 +48,7 @@ impl ProxyHttp for LbProxy {
 /// Build a [`LoadBalancer`] for the named upstream group and register a background
 /// health-check service with the Pingora server. Returns the shared [`Arc`] so the
 /// proxy and the background task operate on the same instance.
-fn build_lb(
+pub(crate) fn build_lb(
     server: &mut Server,
     config: &UnifiedConfig,
     upstream_name: &str,
