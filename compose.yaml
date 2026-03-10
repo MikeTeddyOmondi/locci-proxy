@@ -8,8 +8,12 @@ services:
     container_name: locci-proxy
     image: locci/proxy:latest
     restart: unless-stopped
+    ports:
+      - "8484:8484"   # Main proxy API
+      - "8485:8485"   # Control API
     volumes:
       # Mount your config.yaml — set mode, upstreams, routes here
+      # - ./config-lb.yaml:/app/config.yaml:ro
       - ./config.yaml:/app/config.yaml:ro
     environment:
       - RUST_LOG=${RUST_LOG:-info}
@@ -43,4 +47,5 @@ services:
 
 networks:
   locci-network:
+    name: locci-network
     driver: bridge

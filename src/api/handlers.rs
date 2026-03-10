@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use crate::{
     config::{ControlApiConfig, OperationMode},
+    metrics,
     services::ServiceManager,
 };
 
@@ -100,9 +101,13 @@ fn redact_sensitive(value: &mut Value) {
     }
 }
 
-async fn get_metrics() -> Json<Value> {
-    // TASK-007: wire up Prometheus TextEncoder here.
-    Json(json!({ "note": "wire up your metrics exporter here" }))
+async fn get_metrics() -> axum::response::Response {
+    let body = metrics::render_metrics();
+    axum::response::Response::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+        .body(axum::body::Body::from(body))
+        .unwrap()
 }
 
 async fn add_route(

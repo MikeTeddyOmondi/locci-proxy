@@ -199,6 +199,18 @@ bench: build-release servers-lb
     echo ""
     echo "Done. Proxy log: /tmp/proxy-bench.log"
 
+# ── Monitoring ────────────────────────────────────────────────────────────────
+
+# Start Prometheus + Grafana (http://localhost:3000, default login admin/admin)
+monitor:
+    docker compose -f monitoring/docker-compose.monitoring.yaml up -d
+    @echo "Prometheus: http://localhost:9090"
+    @echo "Grafana:    http://localhost:3000  (admin / admin)"
+
+# Stop monitoring stack
+monitor-stop:
+    docker compose -f monitoring/docker-compose.monitoring.yaml down
+
 # ── Logs ──────────────────────────────────────────────────────────────────────
 
 # Tail gateway upstream logs

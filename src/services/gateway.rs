@@ -4,10 +4,15 @@ use pingora_core::server::Server;
 use pingora_http::RequestHeader;
 use pingora_load_balancing::{LoadBalancer, selection::RoundRobin};
 use pingora_proxy::{ProxyHttp, Session, http_proxy_service};
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use crate::config::{RouteConfig, UnifiedConfig};
 use crate::errors::{ProxyError, ProxyResult};
+use crate::metrics;
 use crate::services::lb::build_lb;
 
 pub struct GatewayProxy {
@@ -22,6 +27,13 @@ pub struct GatewayProxy {
     connect_timeout: Option<Duration>,
     /// Global read timeout fallback — overridden per route by RouteConfig.timeout_secs.
     read_timeout: Option<Duration>,
+}
+
+/// Per-request context for the gateway proxy.
+pub struct GatewayCtx {
+    pub start: Instant,
+    /// Upstream group name resolved during upstream_peer — used in logging.
+    pub upstream: String,
 }
 
 impl GatewayProxy {
@@ -98,13 +110,18 @@ impl GatewayProxy {
 
 #[async_trait]
 impl ProxyHttp for GatewayProxy {
-    type CTX = ();
-    fn new_ctx(&self) -> Self::CTX {}
+    type CTX = GatewayCtx;
+    fn new_ctx(&self) -> Self::CTX {
+        GatewayCtx {
+            start: Instant::now(),
+            upstream: String::new(),
+        }
+    }
 
     async fn upstream_peer(
         &self,
         session: &mut Session,
-        _ctx: &mut Self::CTX,
+        ctx: &mut Self::CTX,
     ) -> Result<Box<HttpPeer>> {
         let path = session.req_header().uri.path().to_owned();
 
@@ -136,6 +153,9 @@ impl ProxyHttp for GatewayProxy {
                 .to_string(),
             )
         })?;
+
+        // Store upstream name in ctx so logging() can label metrics correctly.
+        ctx.upstream.clone_from(&route.upstream);
 
         let mut peer = HttpPeer::new(backend, false, String::new());
         peer.options.connection_timeout = self.connect_timeout;
@@ -174,6 +194,29 @@ impl ProxyHttp for GatewayProxy {
             upstream_request.set_uri(uri);
         }
         Ok(())
+    }
+
+    async fn logging(&self, session: &mut Session, e: Option<&Error>, ctx: &mut Self::CTX) {
+        let duration = ctx.start.elapsed().as_secs_f64();
+        let upstream = if ctx.upstream.is_empty() {
+            "unknown"
+        } else {
+            &ctx.upstream
+        };
+        let status = if e.is_some() {
+            "error".to_owned()
+        } else {
+            session
+                .response_written()
+                .map(|r| r.status.as_str().to_owned())
+                .unwrap_or_else(|| "0".to_owned())
+        };
+
+        metrics::record_request("gateway", upstream, &status, duration);
+
+        if e.is_some() {
+            metrics::record_error("gateway", "upstream_error");
+        }
     }
 }
 

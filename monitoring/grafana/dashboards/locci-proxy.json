@@ -1,0 +1,122 @@
+{
+  "title": "Locci Proxy",
+  "uid": "locci-proxy",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Requests per second",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(locci_requests_total[1m])) by (mode, upstream)",
+          "legendFormat": "{{mode}} / {{upstream}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Request duration p99 (seconds)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(locci_request_duration_seconds_bucket[1m])) by (le, upstream))",
+          "legendFormat": "p99 {{upstream}}"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(locci_request_duration_seconds_bucket[1m])) by (le, upstream))",
+          "legendFormat": "p50 {{upstream}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Requests by status code",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(locci_requests_total[1m])) by (status)",
+          "legendFormat": "HTTP {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Errors per second",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(locci_errors_total[1m])) by (mode, error_type)",
+          "legendFormat": "{{mode}} / {{error_type}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Upstream health",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 6 },
+      "options": {
+        "colorMode": "background",
+        "thresholds": {
+          "steps": [
+            { "value": 0, "color": "red" },
+            { "value": 1, "color": "green" }
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "locci_upstream_health",
+          "legendFormat": "{{upstream}} / {{server}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Total requests",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 22, "w": 8, "h": 4 },
+      "targets": [
+        { "expr": "sum(locci_requests_total)", "legendFormat": "total" }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Total errors",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 22, "w": 8, "h": 4 },
+      "options": {
+        "colorMode": "background",
+        "thresholds": {
+          "steps": [
+            { "value": 0, "color": "green" },
+            { "value": 1, "color": "red" }
+          ]
+        }
+      },
+      "targets": [
+        { "expr": "sum(locci_errors_total)", "legendFormat": "errors" }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Avg request duration (ms)",
+      "type": "stat",
+      "gridPos": { "x": 16, "y": 22, "w": 8, "h": 4 },
+      "targets": [
+        {
+          "expr": "1000 * sum(rate(locci_request_duration_seconds_sum[5m])) / sum(rate(locci_request_duration_seconds_count[5m]))",
+          "legendFormat": "avg ms"
+        }
+      ]
+    }
+  ]
+}

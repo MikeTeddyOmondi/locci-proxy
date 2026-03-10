@@ -200,14 +200,18 @@ When a `health_check` block is present, Pingora runs background health checks ag
 - If `path` is set, an HTTP GET is made to that path. A `2xx` response marks the server healthy.
 - If `path` is omitted, a TCP connection attempt is used.
 
-Unhealthy servers are removed from the rotation until they recover.
+Unhealthy servers are removed from the rotation until they recover. When a server returns to health it is re-added automatically.
 
 ```yaml
 health_check:
-  interval_secs: 30    # how often to check
-  timeout_secs: 5      # per-check connection timeout
+  interval_secs: 10    # how often to check (production: 15–30 s; dev: 10 s)
+  timeout_secs: 2      # per-check connection timeout
   path: /health        # optional HTTP path; omit for TCP-only
 ```
+
+Health check results are reflected in the `locci_upstream_health` Prometheus gauge
+(`1` = healthy, `0` = unhealthy) which updates after every check cycle. This makes
+it straightforward to alert on upstream failures in Grafana.
 
 ### TLS upstreams
 
@@ -241,8 +245,8 @@ upstreams:
     strategy: round_robin
     tls: false
     health_check:
-      interval_secs: 30
-      timeout_secs: 5
+      interval_secs: 15
+      timeout_secs: 3
       path: /health
 
 load_balancer:

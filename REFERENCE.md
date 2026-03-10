@@ -160,16 +160,28 @@ upstreams:
     servers: ["127.0.0.1:3001"]
     strategy: round_robin
     tls: false
+    health_check:
+      interval_secs: 10
+      timeout_secs: 2
+      path: /users
 
   products_server:
     servers: ["127.0.0.1:3002"]
     strategy: round_robin
     tls: false
+    health_check:
+      interval_secs: 10
+      timeout_secs: 2
+      path: /products
 
   web_server:
     servers: ["127.0.0.1:3003"]
     strategy: round_robin
     tls: false
+    health_check:
+      interval_secs: 10
+      timeout_secs: 2
+      path: /pages
 
 api_gateway:
   routes:
@@ -223,8 +235,8 @@ upstreams:
     strategy: round_robin
     tls: false
     health_check:
-      interval_secs: 30
-      timeout_secs: 5
+      interval_secs: 15
+      timeout_secs: 3
       path: /health
 
 load_balancer:
