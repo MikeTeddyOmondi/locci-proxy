@@ -4,6 +4,7 @@ use tracing::info;
 mod api;
 mod config;
 mod errors;
+mod metrics;
 mod services;
 
 use config::{OperationMode, UnifiedConfig, cli::parse_cli};
@@ -57,6 +58,10 @@ fn main() -> ProxyResult<()> {
         bind = %config.server.bind_address,
         "Starting Locci Proxy"
     );
+
+    // Force-initialise all metric descriptors so they appear in scrape output
+    // from startup, before any requests arrive.
+    metrics::init();
 
     // Pingora owns its runtime; plain fn main() + run_forever() is required.
     let mut server =

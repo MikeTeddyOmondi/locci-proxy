@@ -10,6 +10,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- TASK-007: Prometheus metrics — `locci_requests_total`, `locci_request_duration_seconds`, `locci_upstream_health`, `locci_errors_total`; Grafana monitoring stack in `monitoring/`; `just monitor` to start ([#17](https://github.com/MikeTeddyOmondi/locci-proxy/pull/17))
 - TASK-003: Control API bearer token auth — 401 on missing/wrong token; `api_key` and `jwt_secret` redacted in `/api/v1/config` response; auth skipped when `api_key` is unset ([#16](https://github.com/MikeTeddyOmondi/locci-proxy/pull/16))
 - TASK-002: Request timeout enforcement — `upstream_connect_timeout_secs` and `upstream_read_timeout_secs` added to `ServerConfig`; per-route `timeout_secs` overrides the global read timeout in gateway mode ([#15](https://github.com/MikeTeddyOmondi/locci-proxy/pull/15))
 - TASK-001: Gateway upstream load balancing — each upstream group in `api_gateway` now gets its own `LoadBalancer<RoundRobin>` with health-check background task; `upstream_peer` calls `lb.select()` instead of `servers.first()` ([#14](https://github.com/MikeTeddyOmondi/locci-proxy/pull/14))

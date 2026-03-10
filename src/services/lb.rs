@@ -8,10 +8,14 @@ use pingora_load_balancing::{
     selection::RoundRobin,
 };
 use pingora_proxy::{ProxyHttp, Session, http_proxy_service};
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use crate::config::UnifiedConfig;
 use crate::errors::{ProxyError, ProxyResult};
+use crate::metrics;
 
 #[allow(unused_imports)]
 use http;
@@ -23,10 +27,19 @@ pub struct LbProxy {
     read_timeout: Option<Duration>,
 }
 
+/// Per-request context for the LB proxy.
+pub struct LbCtx {
+    pub start: Instant,
+}
+
 #[async_trait]
 impl ProxyHttp for LbProxy {
-    type CTX = ();
-    fn new_ctx(&self) -> Self::CTX {}
+    type CTX = LbCtx;
+    fn new_ctx(&self) -> Self::CTX {
+        LbCtx {
+            start: Instant::now(),
+        }
+    }
 
     async fn upstream_peer(
         &self,
@@ -47,6 +60,24 @@ impl ProxyHttp for LbProxy {
         peer.options.connection_timeout = self.connect_timeout;
         peer.options.read_timeout = self.read_timeout;
         Ok(Box::new(peer))
+    }
+
+    async fn logging(&self, session: &mut Session, e: Option<&Error>, ctx: &mut Self::CTX) {
+        let duration = ctx.start.elapsed().as_secs_f64();
+        let status = if e.is_some() {
+            "error".to_owned()
+        } else {
+            session
+                .response_written()
+                .map(|r| r.status.as_str().to_owned())
+                .unwrap_or_else(|| "0".to_owned())
+        };
+
+        metrics::record_request("lb", &self.upstream_name, &status, duration);
+
+        if e.is_some() {
+            metrics::record_error("lb", "upstream_error");
+        }
     }
 }
 
@@ -105,6 +136,11 @@ pub(crate) fn build_lb(
         let bg = background_service(&format!("health check: {upstream_name}"), lb);
         let lb_arc = bg.task();
         server.add_service(bg);
+
+        // Initialise health gauge for all servers in this upstream.
+        for server_addr in &upstream.servers {
+            metrics::set_upstream_health(upstream_name, server_addr, true);
+        }
 
         tracing::info!(
             upstream = upstream_name,

@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: locci-proxy
+    static_configs:
+      - targets:
+          - host.docker.internal:8485   # control API metrics endpoint
+    metrics_path: /api/v1/metrics
+    # If control_api.api_key is set, add the Bearer token here:
+    # authorization:
+    #   credentials: admin-key-12345
