@@ -19,6 +19,8 @@ use http;
 pub struct LbProxy {
     lb: Arc<LoadBalancer<RoundRobin>>,
     upstream_name: String,
+    connect_timeout: Option<Duration>,
+    read_timeout: Option<Duration>,
 }
 
 #[async_trait]
@@ -41,7 +43,10 @@ impl ProxyHttp for LbProxy {
             )
         })?;
 
-        Ok(Box::new(HttpPeer::new(upstream, false, String::new())))
+        let mut peer = HttpPeer::new(upstream, false, String::new());
+        peer.options.connection_timeout = self.connect_timeout;
+        peer.options.read_timeout = self.read_timeout;
+        Ok(Box::new(peer))
     }
 }
 
@@ -133,6 +138,14 @@ pub fn add_lb_service(server: &mut Server, config: &UnifiedConfig) -> ProxyResul
     let proxy = LbProxy {
         lb: lb_arc,
         upstream_name: lb_cfg.upstream.clone(),
+        connect_timeout: config
+            .server
+            .upstream_connect_timeout_secs
+            .map(Duration::from_secs),
+        read_timeout: config
+            .server
+            .upstream_read_timeout_secs
+            .map(Duration::from_secs),
     };
 
     let addr = &config.server.bind_address;
