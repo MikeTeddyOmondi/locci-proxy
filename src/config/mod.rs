@@ -39,6 +39,12 @@ pub struct ServerConfig {
     pub bind_address: String,
     pub workers: Option<usize>,
     pub tls: Option<TlsConfig>,
+    /// Seconds to wait for a TCP connection to an upstream server. Default: no timeout.
+    pub upstream_connect_timeout_secs: Option<u64>,
+    /// Seconds to wait for the upstream to send a response after the request is sent.
+    /// Overridden per route by `RouteConfig.timeout_secs` in api_gateway mode.
+    /// Default: no timeout.
+    pub upstream_read_timeout_secs: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

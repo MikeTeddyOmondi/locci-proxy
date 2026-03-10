@@ -4,7 +4,7 @@ use pingora_core::server::Server;
 use pingora_http::RequestHeader;
 use pingora_load_balancing::{LoadBalancer, selection::RoundRobin};
 use pingora_proxy::{ProxyHttp, Session, http_proxy_service};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use crate::config::{RouteConfig, UnifiedConfig};
 use crate::errors::{ProxyError, ProxyResult};
@@ -18,6 +18,10 @@ pub struct GatewayProxy {
     // Each upstream group has its own LoadBalancer — round-robin with health
     // check support, identical to lb mode.
     upstreams: Arc<HashMap<String, Arc<LoadBalancer<RoundRobin>>>>,
+    /// Global connect timeout applied to every upstream peer.
+    connect_timeout: Option<Duration>,
+    /// Global read timeout fallback — overridden per route by RouteConfig.timeout_secs.
+    read_timeout: Option<Duration>,
 }
 
 impl GatewayProxy {
@@ -73,6 +77,14 @@ impl GatewayProxy {
         Ok(Self {
             routes,
             upstreams: Arc::new(upstreams),
+            connect_timeout: config
+                .server
+                .upstream_connect_timeout_secs
+                .map(Duration::from_secs),
+            read_timeout: config
+                .server
+                .upstream_read_timeout_secs
+                .map(Duration::from_secs),
         })
     }
 
@@ -125,7 +137,14 @@ impl ProxyHttp for GatewayProxy {
             )
         })?;
 
-        Ok(Box::new(HttpPeer::new(backend, false, String::new())))
+        let mut peer = HttpPeer::new(backend, false, String::new());
+        peer.options.connection_timeout = self.connect_timeout;
+        // Per-route timeout_secs overrides the global read timeout fallback.
+        peer.options.read_timeout = route
+            .timeout_secs
+            .map(Duration::from_secs)
+            .or(self.read_timeout);
+        Ok(Box::new(peer))
     }
 
     async fn upstream_request_filter(

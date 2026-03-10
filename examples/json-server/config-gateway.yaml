@@ -3,6 +3,8 @@ mode: api_gateway
 server:
   bind_address: "0.0.0.0:8484"
   workers: 4
+  upstream_connect_timeout_secs: 10
+  upstream_read_timeout_secs: 30
 
 logging:
   level: info

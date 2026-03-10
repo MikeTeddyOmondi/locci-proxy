@@ -3,6 +3,8 @@ mode: api_gateway   # load_balancer | api_gateway
 server:
   bind_address: "0.0.0.0:8484"
   workers: 4
+  upstream_connect_timeout_secs: 10   # seconds to wait for TCP connect to upstream
+  upstream_read_timeout_secs: 30      # global read timeout (overridden per route by timeout_secs)
 
 logging:
   level: debug   # trace | debug | info | warn | error  (overridden by RUST_LOG env var)
