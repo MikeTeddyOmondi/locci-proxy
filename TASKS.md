@@ -218,14 +218,14 @@ There is no per-request logging. Debugging a live proxy means guessing which ups
 
 | Task | Branch | Status |
 |---|---|---|
-| TASK-001 | `feat/gateway-upstream-lb` | Open |
-| TASK-002 | `feat/request-timeouts` | Open |
-| TASK-003 | `feat/control-api-auth` | Open |
-| TASK-004 | `fix/strip-prefix-unwrap` | Open |
+| TASK-001 | `feat/gateway-upstream-lb` | Done (PR #14) |
+| TASK-002 | `feat/request-timeouts` | Done (PR #15) |
+| TASK-003 | `feat/control-api-auth` | Done (PR #16) |
+| TASK-004 | `fix/strip-prefix-unwrap` | Done (PR #12) |
 | TASK-005 | `feat/middleware-engine` | Open |
 | TASK-006 | `feat/tls-termination` | Open |
-| TASK-007 | `feat/prometheus-metrics` | Open |
-| TASK-008 | `fix/health-check-task` | Open |
+| TASK-007 | `feat/prometheus-metrics` | Done (PR #17) |
+| TASK-008 | `fix/health-check-task` | Done (PR #13) |
 | TASK-009 | `feat/hot-reload` | Open |
 | TASK-010 | `feat/connection-pool-config` | Open |
-| TASK-011 | `feat/structured-logging` | Open |
+| TASK-011 | `feat/structured-logging` | Done (PR #18) |
