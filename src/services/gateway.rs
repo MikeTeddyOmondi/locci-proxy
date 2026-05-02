@@ -86,7 +86,7 @@ impl GatewayProxy {
         }
 
         // Sort longest pattern first so specific routes always beat catch-alls (e.g. ^/).
-        routes.sort_by(|(a, _, _), (b, _, _)| b.as_str().len().cmp(&a.as_str().len()));
+        routes.sort_by_key(|(b, _, _)| std::cmp::Reverse(b.as_str().len()));
 
         Ok(Self {
             routes,
