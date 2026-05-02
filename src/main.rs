@@ -8,7 +8,7 @@ mod metrics;
 mod services;
 
 use config::{OperationMode, UnifiedConfig, cli::parse_cli};
-use errors::{ProxyError, ProxyResult};
+use errors::ProxyResult;
 use services::ServiceManager;
 
 fn main() -> ProxyResult<()> {
@@ -64,11 +64,15 @@ fn main() -> ProxyResult<()> {
     metrics::init();
 
     // Pingora owns its runtime; plain fn main() + run_forever() is required.
+    let pingora_server_config = {
+        let mut server_conf = pingora_core::server::configuration::ServerConf::default();
+        if let Some(w) = config.server.workers {
+            server_conf.threads = w;
+        }
+        server_conf
+    };
     let mut server =
-        pingora_core::server::Server::new(None).map_err(|e| ProxyError::LoadBalancerBuild {
-            name: "pingora-server".to_owned(),
-            source: std::io::Error::other(e.to_string()),
-        })?;
+        pingora_core::server::Server::new_with_opt_and_conf(None, pingora_server_config);
     server.bootstrap();
 
     let manager = Arc::new(ServiceManager::new(config.clone()));

@@ -12,7 +12,7 @@ logging:
 upstreams:
   users_server:
     servers:
-      - "127.0.0.1:3001"   # json-server --port 3001 db-users.json
+      - "127.0.0.1:3001"   # json-server --port 3001 examples/json-server/db-users.json
     strategy: round_robin
     tls: false
     health_check:
@@ -22,7 +22,7 @@ upstreams:
 
   products_server:
     servers:
-      - "127.0.0.1:3002"   # json-server --port 3002 db-products.json
+      - "127.0.0.1:3002"   # json-server --port 3002 examples/json-server/db-products.json
     strategy: round_robin
     tls: false
     health_check:
@@ -32,7 +32,7 @@ upstreams:
 
   web_server:
     servers:
-      - "127.0.0.1:3003"   # json-server --port 3003 db-web.json
+      - "127.0.0.1:3003"   # json-server --port 3003 examples/json-server/db-web.json
     strategy: round_robin
     tls: false
     health_check:

@@ -28,3 +28,10 @@ regex = "1"
 once_cell = "1"
 uuid = { version = "1", features = ["v4"] }
 prometheus = { version = "0.13", features = ["process"] }
+
+[profile.release]
+opt-level     = 3      # maximum optimisation
+lto           = "thin" # cross-crate inlining without full LTO compile time cost
+codegen-units = 1      # single CGU lets LLVM see the whole crate for better inlining
+strip         = true   # remove debug symbols → smaller binary
+panic         = "abort" # skip unwinding machinery, slightly leaner hot paths

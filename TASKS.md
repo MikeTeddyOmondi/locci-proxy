@@ -214,18 +214,35 @@ There is no per-request logging. Debugging a live proxy means guessing which ups
 
 ---
 
+### TASK-012 — Benchmark infrastructure + proxy optimisations
+**Branch:** `chore/optimisations`
+
+**Problem:**
+Benchmarks produced 100% HTTP 404 responses; proxy worker count was silently ignored; no fast upstream alternative to single-threaded json-server existed for measuring real proxy overhead.
+
+**Work items:**
+- Fix absolute-form URI forwarding — proxy was passing `GET http://host/path` verbatim to upstreams instead of rewriting to origin form `GET /path`; affected both lb and gateway modes
+- Wire `workers` config field to Pingora `ServerConf::threads` — field was parsed but `Server::new(None)` discarded it, leaving the proxy on 1 thread
+- Add `[profile.release]` optimisations — `opt-level=3`, `lto=thin`, `codegen-units=1`, `strip=true`, `panic=abort`
+- Add Go bench upstreams (`examples/go/lb-upstream.go`, `examples/go/gateway-upstream.go`) — multi-threaded stdlib servers that serve the same JSON shape as json-server fixtures; eliminates Node.js single-thread ceiling from bench results
+- Relocate example configs — move `config-lb.yaml` and `config-gateway.yaml` from `examples/json-server/` to `examples/`
+- Expand justfile — Docker/compose recipes, Go bench recipes (`servers-lb-go`, `bench-lb-go`, `bench-gateway-go`, etc.), all bench recipes now self-contained (build-release + start servers + start proxy + cleanup)
+
+---
+
 ## Tracking
 
 | Task | Branch | Status |
 |---|---|---|
-| TASK-001 | `feat/gateway-upstream-lb` | Open |
-| TASK-002 | `feat/request-timeouts` | Open |
-| TASK-003 | `feat/control-api-auth` | Open |
-| TASK-004 | `fix/strip-prefix-unwrap` | Open |
+| TASK-001 | `feat/gateway-upstream-lb` | Done (PR #14) |
+| TASK-002 | `feat/request-timeouts` | Done (PR #15) |
+| TASK-003 | `feat/control-api-auth` | Done (PR #16) |
+| TASK-004 | `fix/strip-prefix-unwrap` | Done (PR #12) |
 | TASK-005 | `feat/middleware-engine` | Open |
 | TASK-006 | `feat/tls-termination` | Open |
-| TASK-007 | `feat/prometheus-metrics` | Open |
-| TASK-008 | `fix/health-check-task` | Open |
+| TASK-007 | `feat/prometheus-metrics` | Done (PR #17) |
+| TASK-008 | `fix/health-check-task` | Done (PR #13) |
 | TASK-009 | `feat/hot-reload` | Open |
 | TASK-010 | `feat/connection-pool-config` | Open |
-| TASK-011 | `feat/structured-logging` | Open |
+| TASK-011 | `feat/structured-logging` | Done (PR #18) |
+| TASK-012 | `chore/optimisations` | Open |

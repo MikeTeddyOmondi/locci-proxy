@@ -2,7 +2,7 @@ mode: load_balancer
 
 server:
   bind_address: "0.0.0.0:8484"
-  workers: 4
+  workers: 2
   upstream_connect_timeout_secs: 10
   upstream_read_timeout_secs: 30
 
@@ -14,9 +14,9 @@ logging:
 upstreams:
   app_servers:
     servers:
-      - "127.0.0.1:3001"   # json-server --port 3001 db-lb-1.json
-      - "127.0.0.1:3002"   # json-server --port 3002 db-lb-2.json
-      - "127.0.0.1:3003"   # json-server --port 3003 db-lb-3.json
+      - "127.0.0.1:3001"   # json-server --port 3001 examples/json-server/db-lb-1.json
+      - "127.0.0.1:3002"   # json-server --port 3002 examples/json-server/db-lb-2.json
+      - "127.0.0.1:3003"   # json-server --port 3003 examples/json-server/db-lb-3.json
     strategy: round_robin
     tls: false
     health_check:
