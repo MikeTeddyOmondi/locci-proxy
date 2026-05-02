@@ -70,13 +70,27 @@ impl ProxyHttp for LbProxy {
 
     async fn upstream_request_filter(
         &self,
-        _session: &mut Session,
+        session: &mut Session,
         upstream_request: &mut RequestHeader,
         ctx: &mut Self::CTX,
     ) -> Result<()> {
         upstream_request
             .insert_header("x-request-id", ctx.request_id.as_str())
             .or_err(InternalError, "insert x-request-id")?;
+
+        // Proxy clients send absolute-form URIs ("GET http://host/path HTTP/1.1").
+        // Upstreams expect origin form ("GET /path HTTP/1.1"). Normalise here.
+        let pq = session
+            .req_header()
+            .uri
+            .path_and_query()
+            .map(|pq| pq.as_str())
+            .unwrap_or("/");
+        let origin_uri = pq
+            .parse::<http::Uri>()
+            .or_err(InternalError, "rewrite upstream uri to origin form")?;
+        upstream_request.set_uri(origin_uri);
+
         Ok(())
     }
 

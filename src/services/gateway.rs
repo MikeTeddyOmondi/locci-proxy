@@ -182,26 +182,32 @@ impl ProxyHttp for GatewayProxy {
             .insert_header("x-request-id", ctx.request_id.as_str())
             .or_err(InternalError, "insert x-request-id")?;
 
+        // Proxy clients send absolute-form URIs ("GET http://host/path HTTP/1.1").
+        // Upstreams expect origin form ("GET /path HTTP/1.1"). Always normalise,
+        // and additionally strip the route prefix when strip_prefix: true.
         let path = session.req_header().uri.path().to_owned();
 
-        if let Some((_, Some(strip_re), _)) = self.match_route(&path) {
-            let new_path = strip_re.replace(&path, "").to_string();
-            let new_path = if new_path.is_empty() {
+        let new_path = if let Some((_, Some(strip_re), _)) = self.match_route(&path) {
+            let stripped = strip_re.replace(&path, "").to_string();
+            if stripped.is_empty() {
                 "/".to_owned()
             } else {
-                new_path
-            };
-            let uri = new_path.parse().map_err(|_| {
-                Error::explain(
-                    InternalError,
-                    ProxyError::InvalidUri {
-                        uri: new_path.clone(),
-                    }
-                    .to_string(),
-                )
-            })?;
-            upstream_request.set_uri(uri);
-        }
+                stripped
+            }
+        } else {
+            path
+        };
+
+        let uri = new_path.parse().map_err(|_| {
+            Error::explain(
+                InternalError,
+                ProxyError::InvalidUri {
+                    uri: new_path.clone(),
+                }
+                .to_string(),
+            )
+        })?;
+        upstream_request.set_uri(uri);
         Ok(())
     }
 
