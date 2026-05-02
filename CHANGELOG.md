@@ -10,14 +10,22 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- TASK-012: Go bench upstreams — `examples/go/lb-upstream.go` and `examples/go/gateway-upstream.go`; multi-threaded stdlib servers serving the same JSON shape as json-server fixtures, eliminating the Node.js single-thread ceiling from benchmark results
+- TASK-012: Expanded justfile — Docker/compose recipes (`docker-build`, `docker-run`, `docker-run-lb`, `docker-run-gateway`, `compose-up`, `compose-down`, etc.); Go bench recipes (`servers-lb-go`, `bench-lb-go`, `bench-gateway-go`, `bench-go`, `bench-gateway-go-full`); all bench recipes now self-contained (build → start servers → start proxy → benchmark → cleanup)
 - TASK-007: Prometheus metrics — `locci_requests_total`, `locci_request_duration_seconds`, `locci_upstream_health`, `locci_errors_total`; Grafana monitoring stack in `monitoring/`; `just monitor` to start ([#17](https://github.com/MikeTeddyOmondi/locci-proxy/pull/17))
 - TASK-003: Control API bearer token auth — 401 on missing/wrong token; `api_key` and `jwt_secret` redacted in `/api/v1/config` response; auth skipped when `api_key` is unset ([#16](https://github.com/MikeTeddyOmondi/locci-proxy/pull/16))
 - TASK-002: Request timeout enforcement — `upstream_connect_timeout_secs` and `upstream_read_timeout_secs` added to `ServerConfig`; per-route `timeout_secs` overrides the global read timeout in gateway mode ([#15](https://github.com/MikeTeddyOmondi/locci-proxy/pull/15))
 - TASK-001: Gateway upstream load balancing — each upstream group in `api_gateway` now gets its own `LoadBalancer<RoundRobin>` with health-check background task; `upstream_peer` calls `lb.select()` instead of `servers.first()` ([#14](https://github.com/MikeTeddyOmondi/locci-proxy/pull/14))
 
 ### Fixed
+- TASK-012: Absolute-form URI forwarding — proxy was passing `GET http://host/path HTTP/1.1` verbatim to upstreams (origin form `GET /path` required); caused 100% HTTP 404 on all bench and rewrk traffic in both lb and gateway modes
+- TASK-012: Wire `workers` config to Pingora `ServerConf::threads` — field was parsed but `Server::new(None)` discarded it, leaving every deployment silently running on a single proxy thread
 - TASK-004: Pre-compile strip-prefix regex at startup — eliminates runtime `unwrap()` on the hot path ([#12](https://github.com/MikeTeddyOmondi/locci-proxy/pull/12))
 - TASK-008: Health check background task now registered with Pingora server — checks were configured but never ran ([#13](https://github.com/MikeTeddyOmondi/locci-proxy/pull/13))
+
+### Changed
+- TASK-012: Release profile optimisations — `opt-level=3`, `lto=thin`, `codegen-units=1`, `strip=true`, `panic=abort` added to `Cargo.toml`
+- TASK-012: Relocate example configs — `config-lb.yaml` and `config-gateway.yaml` moved from `examples/json-server/` to `examples/` root
 
 ### Planned (see TASKS.md)
 - TASK-001: Load balancing within gateway upstream groups (round-robin + failover)
